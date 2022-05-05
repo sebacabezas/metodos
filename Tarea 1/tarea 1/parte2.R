@@ -1,4 +1,17 @@
 library(readr)
+library(dplyr)
+library(R.matlab)
+library(stats)
+library(mgcv)
+library(car)
+library(MASS)
+
+
+
+
+# 1) ----------------------------------------------------------------------
+
+
 
 set.seed(10)
 base <- read_csv("FINAL_USO.csv")
@@ -16,4 +29,13 @@ indice2 = sample(indice2, 343, replace = FALSE)
 indice_val = indice[indice2]
 indice_test = indice[-indice2]
 
+
+
+# 2) ----------------------------------------------------------------------
+
+base = base[,c(6:dim(base)[2])]
+colnames(base)[1] = "Adj_close"
+
+ridge = lm.ridge( Adj_close~ . , data=base, lambda = c(12,3,5,7,10,15,20,30,40,50,60,70,80,90,100,200,300,500,1000,2000))
+plot(ridge)
 

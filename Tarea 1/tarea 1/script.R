@@ -100,7 +100,7 @@ lines(ECM2)
 # F) ----------------------------------------------------------------------
 
 # Lambda = 10
-modelo_ridge <- lm.ridge( y~ ., data=base_poly, lambda = 10/28)
+modelo_ridge <- lm.ridge( y~ ., data=base_poly, lambda = 10/24)
 
 grilla = seq(-50,50,length=1000)
 plot(datos$X, datos$y)
