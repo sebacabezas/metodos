@@ -7,6 +7,9 @@ library(MASS)
 
 datos <- readMat("represa-1.mat")
 
+# A) ----------------------------------------------------------------------
+
+
 regresion1 = lm(datos$y~datos$X)
 
 plot(datos$X,datos$y)
@@ -91,7 +94,7 @@ for (i in 2:length(datos$X)) {
 
 
 
-plot(seq(1,12),  ECM1, xlim = c(0,12), ylim = c(0,250))
+plot(seq(1,12),  ECM1, xlim = c(0,12), ylim = c(0,250), xlab = "valores")
 lines(ECM2)
 
 
@@ -103,7 +106,7 @@ lines(ECM2)
 modelo_ridge <- lm.ridge( y~ ., data=base_poly, lambda = 10/24)
 
 grilla = seq(-50,50,length=1000)
-plot(datos$X, datos$y)
+plot(datos$X, datos$y, xlab = "Valores de x", ylab = "Valores de Y", main = "lambda = 10")
 lines(grilla, coef(modelo_ridge)[[1]] + coef(modelo_ridge)[[2]]*grilla + coef(modelo_ridge)[[3]]*grilla^2 +
         coef(modelo_ridge)[[4]]*grilla^3 + coef(modelo_ridge)[[5]]*grilla^4 + 
         coef(modelo_ridge)[[6]]*grilla^5 + coef(modelo_ridge)[[7]]*grilla^6 + 
@@ -114,7 +117,7 @@ lines(grilla, coef(modelo_ridge)[[1]] + coef(modelo_ridge)[[2]]*grilla + coef(mo
 modelo_ridge2 <- lm.ridge( y~ ., data=base_poly, lambda = 100/28)
 
 grilla = seq(-50,50,length=1000)
-plot(datos$X, datos$y)
+plot(datos$X, datos$y, xlab = "Valores de x", ylab = "Valores de Y", main = "lambda = 100")
 lines(grilla, coef(modelo_ridge2)[[1]] + coef(modelo_ridge2)[[2]]*grilla + coef(modelo_ridge2)[[3]]*grilla^2 +
         coef(modelo_ridge2)[[4]]*grilla^3 + coef(modelo_ridge2)[[5]]*grilla^4 + 
         coef(modelo_ridge2)[[6]]*grilla^5 + coef(modelo_ridge2)[[7]]*grilla^6 + 
@@ -137,7 +140,7 @@ ECM_mod1 = mean((prediccion_mod1-datos$ytest)^2)
 base_poly_test = poly(datos$Xtest, degree = 8, raw = TRUE, simple = TRUE)
 ml2 = lm(y~., data = base_poly)
 prediccion_mod2 = predict(ml2, base_poly_2)
-mean((prediccion_mod2-datos$ytest)^2)
+mean((prediccion_mod2-datos$yval)^2)
 
 
 # ECM de modelo lineal polinomial con penalizacion lambda = 10
@@ -148,16 +151,4 @@ modelo_ridge <- lm.ridge( y~ ., data=base_poly, lambda = 10/28)
 prediccion_ridge = as.matrix(cbind(rep(1,length(datos$Xtest)),as.matrix(base_poly_test[,]))) %*% coef(modelo_ridge)
 ECM_ridge = mean((prediccion_ridge-datos$ytest)^2)
 ECM_ridge
-
-
-
-
-
-
-
-
-
-
-
-
 

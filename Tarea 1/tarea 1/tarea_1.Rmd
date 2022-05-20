@@ -1,0 +1,462 @@
+---
+title: "Tarea 1"
+author: "Maximiliano Norbu"
+date: "5/4/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+
+library("R.matlab")
+library("ggplot2")
+library("reshape2")
+library("MASS")
+library("glmnet")
+library("dplyr")
+library("tidyr")
+library("scales")
+
+
+#datos
+datos = readMat("represa-1.mat")
+Xt = datos$X
+Xte = datos$Xtest
+Xv = datos$Xval
+Yt = datos$y
+Yte = datos$ytest
+Yv = datos$yval
+Xall = c(Xt,Xte,Xv)
+Yall = c(Yt,Yte,Yv)
+dft = data.frame("Xt" = Xt, "Yt" =Yt)
+dfte = data.frame("Xte" = Xte, "Yte" =Yte)
+dfv = data.frame("Xv" = Xv, "Yv" =Yv)
+dfallz = data.frame("Xall" = Xall, "Yall" =Yall)
+
+```
+
+
+# Parte 1
+
+## Pregunta 1
+
+```{r}
+
+modelo = lm(Yt ~ Xt)
+plot(Xall, Yall)
+abline(modelo, col="BLUE")
+
+```
+
+Hay mucho sesgo pues los datos reales se alejan mucho de mis predicciones (se nota visualmente que los datos no están cerca de la curva que ajustó mi regresión lineal). Varianza no se nota demasiada al ojo.
+
+## Pregunta 2
+
+```{r}
+
+modelos = seq(1:12)
+for (i in 2:12){
+  modelos[i] = lm(Yt[1:i]~ Xt[1:i])
+}
+
+modelos[[1]][[1]] = Yt[1]
+ERT = seq(1:12)
+ERV = seq(1:12)
+
+ERT[1] = 0
+ERV[1] = 0
+for (j in 1:21){
+  ERV[1] = ERV[1] + (Yv[j]-(modelos[[1]][[1]]))^2
+}
+ERV[1]= ERV[1]/21
+
+for (i in 2:12){
+  rata = 0
+  for (j in 1:i){
+    rata = rata+ (Yt[j]-(modelos[[i]][[1]]+Xt[j]*modelos[[i]][[2]]))^2
+  }
+  ERT[i] = rata/i
+}
+
+for (i in 2:12){
+  rata = 0
+  for (j in 1:21){
+    rata = rata+ (Yv[j]-(modelos[[i]][[1]]+Xv[j]*modelos[[i]][[2]]))^2
+  }
+  ERV[i] = rata/21
+}
+secu = seq(1:12)
+df = data.frame(secu, ERV, ERT)
+df2 = melt(data = df, id.vars = "secu")
+ggplot(data = df2, aes(x = secu, y = value, colour = variable)) + geom_line()
+
+```
+
+No aprecio problemas de varianza, ya que, tanto los errores de la base de testeo como los errores de la base de validación, parecieran  converger a un valor. Sin embargo, noto problemas de sesgo, pues el error cuadrático medio al que se converge es cercano al 50 y los datos que tenemos fluctuan, aproximadamente entre -50 y 50, por lo que el error es demasiado grande.
+
+## Pregunta 3
+
+```{r}
+
+df8 = poly(Xall, degree = 8, raw=T)
+medias = apply(df8,2,mean)
+varianzas = apply(df8,2,var)
+df8N = scale(df8, center = T, scale = T)
+df8N
+
+```
+
+## Pregunta 4
+
+```{r}
+
+modeloP = lm(Yt ~ Xt + I(Xt^2) + I(Xt^3)+ I(Xt^4)+ I(Xt^5)+ I(Xt^6)+ I(Xt^7)+ I(Xt^8))
+x_grid = seq(min(Xall), max(Xall), 0.1)
+y_grid = modeloP$coefficients[[1]] + modeloP$coefficients[[2]]*x_grid^1 + modeloP$coefficients[[3]]*x_grid^2 + modeloP$coefficients[[4]]*x_grid^3 + modeloP$coefficients[[5]]*x_grid^4 + modeloP$coefficients[[6]]*x_grid^5 + modeloP$coefficients[[7]]*x_grid^6 + modeloP$coefficients[[8]]*x_grid^7 + modeloP$coefficients[[9]]*x_grid^8 
+plot(Xall, Yall)
+lines(x_grid, y_grid, col = "dark green")
+
+```
+
+Realmente no aprecio problemas de varianza ni de sesgo.
+
+## Pregunta 5
+
+```{r}
+
+modelos2 = seq(1:12)
+modelos2[1] = Yt[1]
+modelos2[2] = lm(Yt[1:2] ~ Xt[1:2])
+modelos2[3] = lm(Yt[1:3] ~ Xt[1:3] + I(Xt[1:3]^2))
+modelos2[4] = lm(Yt[1:4] ~ Xt[1:4] + I(Xt[1:4]^2) + I(Xt[1:4]^3))
+modelos2[5] = lm(Yt[1:5] ~ Xt[1:5] + I(Xt[1:5]^2) + I(Xt[1:5]^3) + I(Xt[1:5]^4))
+modelos2[6] = lm(Yt[1:6] ~ Xt[1:6] + I(Xt[1:6]^2) + I(Xt[1:6]^3) + I(Xt[1:6]^4) + I(Xt[1:6]^5))
+modelos2[7] = lm(Yt[1:7] ~ Xt[1:7] + I(Xt[1:7]^2) + I(Xt[1:7]^3) + I(Xt[1:7]^4) + I(Xt[1:7]^5) + I(Xt[1:7]^6))
+modelos2[8] = lm(Yt[1:8] ~ Xt[1:8] + I(Xt[1:8]^2) + I(Xt[1:8]^3) + I(Xt[1:8]^4) + I(Xt[1:8]^5) + I(Xt[1:8]^6) + I(Xt[1:8]^7))
+modelos2[9] = lm(Yt[1:9] ~ Xt[1:9] + I(Xt[1:9]^2) + I(Xt[1:9]^3) + I(Xt[1:9]^4) + I(Xt[1:9]^5) + I(Xt[1:9]^6) + I(Xt[1:9]^7) + I(Xt[1:9]^8))
+modelos2[10] = lm(Yt[1:10] ~ Xt[1:10] + I(Xt[1:10]^2) + I(Xt[1:10]^3) + I(Xt[1:10]^4) + I(Xt[1:10]^5) + I(Xt[1:10]^6) + I(Xt[1:10]^7) + I(Xt[1:10]^8))
+modelos2[11] = lm(Yt[1:11] ~ Xt[1:11] + I(Xt[1:11]^2) + I(Xt[1:11]^3) + I(Xt[1:11]^4) + I(Xt[1:11]^5) + I(Xt[1:11]^6) + I(Xt[1:11]^7) + I(Xt[1:11]^8))
+modelos2[12] = lm(Yt[1:12] ~ Xt[1:12] + I(Xt[1:12]^2) + I(Xt[1:12]^3) + I(Xt[1:12]^4) + I(Xt[1:12]^5) + I(Xt[1:12]^6) + I(Xt[1:12]^7) + I(Xt[1:12]^8))
+
+ERT2 = rep(0,12)
+ERV2 = rep(0,12)
+
+#ERT2
+
+
+for (j in 1:2){
+  ERT2[2] = ERT2[2] + (Yt[j]-(modelos2[[2]][[1]]+Xt[j]*modelos2[[2]][[2]]))^2
+}
+ERT2[2]= ERT2[2]/21
+
+
+for (j in 1:3){
+  ERT2[3] = ERT2[3] + (Yt[j]-(modelos2[[3]][[1]]+Xt[j]*modelos2[[3]][[2]]+Xt[j]^2*modelos2[[3]][[3]]))^2
+}
+ERT2[3]= ERT2[3]/21
+
+for (j in 1:4){
+  ERT2[4] = ERT2[4] + (Yt[j]-(modelos2[[4]][[1]]+Xt[j]*modelos2[[4]][[2]]+Xt[j]^2*modelos2[[4]][[3]]+Xt[j]^3*modelos2[[4]][[4]]))^2
+}
+ERT2[4]= ERT2[4]/21
+
+for (j in 1:5){
+  ERT2[5] = ERT2[5] + (Yt[j]-(modelos2[[5]][[1]]+Xt[j]*modelos2[[5]][[2]]+Xt[j]^2*modelos2[[5]][[3]]+Xt[j]^3*modelos2[[5]][[4]]+Xt[j]^4*modelos2[[5]][[5]]))^2
+}
+ERT2[5]= ERT2[5]/21
+
+for (j in 1:6){
+  ERT2[6] = ERT2[6] + (Yt[j]-(modelos2[[6]][[1]]+Xt[j]*modelos2[[6]][[2]]+Xt[j]^2*modelos2[[6]][[3]]+Xt[j]^3*modelos2[[6]][[4]]+Xt[j]^4*modelos2[[6]][[5]]+Xt[j]^5*modelos2[[6]][[6]]))^2
+}
+ERT2[6]= ERT2[6]/21
+
+
+for (j in 1:7){
+  ERT2[7] = ERT2[7] + (Yt[j]-(modelos2[[7]][[1]]+Xt[j]*modelos2[[7]][[2]]+Xt[j]^2*modelos2[[7]][[3]]+Xt[j]^3*modelos2[[7]][[4]]+Xt[j]^4*modelos2[[7]][[5]]+Xt[j]^5*modelos2[[7]][[6]]+Xt[j]^6*modelos2[[7]][[7]]))^2
+}
+ERT2[7]= ERT2[7]/21
+
+for (j in 1:8){
+  ERT2[8] = ERT2[8] + (Yt[j]-(modelos2[[8]][[1]]+Xt[j]*modelos2[[8]][[2]]+Xt[j]^2*modelos2[[8]][[3]]+Xt[j]^3*modelos2[[8]][[4]]+Xt[j]^4*modelos2[[8]][[5]]+Xt[j]^5*modelos2[[8]][[6]]+Xt[j]^6*modelos2[[8]][[7]]+Xt[j]^7*modelos2[[8]][[8]]))^2
+}
+ERT2[8]= ERT2[8]/21
+
+for (j in 1:9){
+  ERT2[9] = ERT2[9] + (Yt[j]-(modelos2[[9]][[1]]+Xt[j]*modelos2[[9]][[2]]+Xt[j]^2*modelos2[[9]][[3]]+Xt[j]^3*modelos2[[9]][[4]]+Xt[j]^4*modelos2[[9]][[5]]+Xt[j]^5*modelos2[[9]][[6]]+Xt[j]^6*modelos2[[9]][[7]]+Xt[j]^7*modelos2[[9]][[8]]+Xt[j]^8*modelos2[[9]][[9]]))^2
+}
+ERT2[9]= ERT2[9]/21
+
+for (j in 1:10){
+  ERT2[10] = ERT2[10] + (Yt[j]-(modelos2[[10]][[1]]+Xt[j]*modelos2[[10]][[2]]+Xt[j]^2*modelos2[[10]][[3]]+Xt[j]^3*modelos2[[10]][[4]]+Xt[j]^4*modelos2[[10]][[5]]+Xt[j]^5*modelos2[[10]][[6]]+Xt[j]^6*modelos2[[10]][[7]]+Xt[j]^7*modelos2[[10]][[8]]+Xt[j]^8*modelos2[[10]][[9]]))^2
+}
+ERT2[10]= ERT2[10]/21
+
+for (j in 1:11){
+  ERT2[11] = ERT2[11] + (Yt[j]-(modelos2[[11]][[1]]+Xt[j]*modelos2[[11]][[2]]+Xt[j]^2*modelos2[[11]][[3]]+Xt[j]^3*modelos2[[11]][[4]]+Xt[j]^4*modelos2[[11]][[5]]+Xt[j]^5*modelos2[[11]][[6]]+Xt[j]^6*modelos2[[11]][[7]]+Xt[j]^7*modelos2[[11]][[8]]+Xt[j]^8*modelos2[[11]][[9]]))^2
+}
+ERT2[11]= ERT2[11]/21
+
+for (j in 1:12){
+  ERT2[12] = ERT2[12] + (Yt[j]-(modelos2[[12]][[1]]+Xt[j]*modelos2[[12]][[2]]+Xt[j]^2*modelos2[[12]][[3]]+Xt[j]^3*modelos2[[12]][[4]]+Xt[j]^4*modelos2[[12]][[5]]+Xt[j]^5*modelos2[[12]][[6]]+Xt[j]^6*modelos2[[12]][[7]]+Xt[j]^7*modelos2[[12]][[8]]+Xt[j]^8*modelos2[[12]][[9]]))^2
+}
+ERT2[12]= ERT2[12]/21
+
+
+#ERV2
+
+for (j in 1:21){
+  ERV2[1] = ERV2[1] + (Yv[j]-(modelos2[[1]][[1]]))^2
+}
+ERV2[1]= ERV2[1]/21
+
+
+for (j in 1:21){
+  ERV2[2] = ERV2[2] + (Yv[j]-(modelos2[[2]][[1]]+Xv[j]*modelos2[[2]][[2]]))^2
+}
+ERV2[2]= ERV2[2]/21
+
+
+for (j in 1:21){
+  ERV2[3] = ERV2[3] + (Yv[j]-(modelos2[[3]][[1]]+Xv[j]*modelos2[[3]][[2]]+Xv[j]^2*modelos2[[3]][[3]]))^2
+}
+ERV2[3]= ERV2[3]/21
+
+for (j in 1:21){
+  ERV2[4] = ERV2[4] + (Yv[j]-(modelos2[[4]][[1]]+Xv[j]*modelos2[[4]][[2]]+Xv[j]^2*modelos2[[4]][[3]]+Xv[j]^3*modelos2[[4]][[4]]))^2
+}
+ERV2[4]= ERV2[4]/21
+
+for (j in 1:21){
+  ERV2[5] = ERV2[5] + (Yv[j]-(modelos2[[5]][[1]]+Xv[j]*modelos2[[5]][[2]]+Xv[j]^2*modelos2[[5]][[3]]+Xv[j]^3*modelos2[[5]][[4]]+Xv[j]^4*modelos2[[5]][[5]]))^2
+}
+ERV2[5]= ERV2[5]/21
+
+for (j in 1:21){
+  ERV2[6] = ERV2[6] + (Yv[j]-(modelos2[[6]][[1]]+Xv[j]*modelos2[[6]][[2]]+Xv[j]^2*modelos2[[6]][[3]]+Xv[j]^3*modelos2[[6]][[4]]+Xv[j]^4*modelos2[[6]][[5]]+Xv[j]^5*modelos2[[6]][[6]]))^2
+}
+ERV2[6]= ERV2[6]/21
+
+
+for (j in 1:21){
+  ERV2[7] = ERV2[7] + (Yv[j]-(modelos2[[7]][[1]]+Xv[j]*modelos2[[7]][[2]]+Xv[j]^2*modelos2[[7]][[3]]+Xv[j]^3*modelos2[[7]][[4]]+Xv[j]^4*modelos2[[7]][[5]]+Xv[j]^5*modelos2[[7]][[6]]+Xv[j]^6*modelos2[[7]][[7]]))^2
+}
+ERV2[7]= ERV2[7]/21
+
+for (j in 1:21){
+  ERV2[8] = ERV2[8] + (Yv[j]-(modelos2[[8]][[1]]+Xv[j]*modelos2[[8]][[2]]+Xv[j]^2*modelos2[[8]][[3]]+Xv[j]^3*modelos2[[8]][[4]]+Xv[j]^4*modelos2[[8]][[5]]+Xv[j]^5*modelos2[[8]][[6]]+Xv[j]^6*modelos2[[8]][[7]]+Xv[j]^7*modelos2[[8]][[8]]))^2
+}
+ERV2[8]= ERV2[8]/21
+
+for (j in 1:21){
+  ERV2[9] = ERV2[9] + (Yv[j]-(modelos2[[9]][[1]]+Xv[j]*modelos2[[9]][[2]]+Xv[j]^2*modelos2[[9]][[3]]+Xv[j]^3*modelos2[[9]][[4]]+Xv[j]^4*modelos2[[9]][[5]]+Xv[j]^5*modelos2[[9]][[6]]+Xv[j]^6*modelos2[[9]][[7]]+Xv[j]^7*modelos2[[9]][[8]]+Xv[j]^8*modelos2[[9]][[9]]))^2
+}
+ERV2[9]= ERV2[9]/21
+
+for (j in 1:21){
+  ERV2[10] = ERV2[10] + (Yv[j]-(modelos2[[10]][[1]]+Xv[j]*modelos2[[10]][[2]]+Xv[j]^2*modelos2[[10]][[3]]+Xv[j]^3*modelos2[[10]][[4]]+Xv[j]^4*modelos2[[10]][[5]]+Xv[j]^5*modelos2[[10]][[6]]+Xv[j]^6*modelos2[[10]][[7]]+Xv[j]^7*modelos2[[10]][[8]]+Xv[j]^8*modelos2[[10]][[9]]))^2
+}
+ERV2[10]= ERV2[10]/21
+
+for (j in 1:21){
+  ERV2[11] = ERV2[11] + (Yv[j]-(modelos2[[11]][[1]]+Xv[j]*modelos2[[11]][[2]]+Xv[j]^2*modelos2[[11]][[3]]+Xv[j]^3*modelos2[[11]][[4]]+Xv[j]^4*modelos2[[11]][[5]]+Xv[j]^5*modelos2[[11]][[6]]+Xv[j]^6*modelos2[[11]][[7]]+Xv[j]^7*modelos2[[11]][[8]]+Xv[j]^8*modelos2[[11]][[9]]))^2
+}
+ERV2[11]= ERV2[11]/21
+
+for (j in 1:21){
+  ERV2[12] = ERV2[12] + (Yv[j]-(modelos2[[12]][[1]]+Xv[j]*modelos2[[12]][[2]]+Xv[j]^2*modelos2[[12]][[3]]+Xv[j]^3*modelos2[[12]][[4]]+Xv[j]^4*modelos2[[12]][[5]]+Xv[j]^5*modelos2[[12]][[6]]+Xv[j]^6*modelos2[[12]][[7]]+Xv[j]^7*modelos2[[12]][[8]]+Xv[j]^8*modelos2[[12]][[9]]))^2
+}
+ERV2[12]= ERV2[12]/21
+
+secu2 = seq(1:12)
+
+df3 = data.frame(secu2, ERV2, ERT2)
+df4 = melt(data = df3, id.vars = "secu2")
+ggplot(data = df4, aes(x = secu2, y = value, colour = variable)) + geom_line()
+
+```
+
+Noto problemas de varianza, ya que los errores de la base de validación y la de entrenamiento no están corvengiendo al mismo valor. Los errores de la base de validación son notoriamente más altos.
+
+## Pregunta 6
+
+```{r}
+
+mmo= model.matrix(Yt ~ Xt + I(Xt^2) + I(Xt^3)+ I(Xt^4)+ I(Xt^5)+ I(Xt^6)+ I(Xt^7)+ I(Xt^8))[,-1]
+modeloR = glmnet(mmo,Yt,lambda = 10/(2*length(Xt)),alpha = 0)
+modeloR2 = glmnet(mmo,Yt,lambda = 100/(2*length(Xt)),alpha = 0)
+coR = coef(modeloR)
+coR2 = coef(modeloR2)
+yr_grid = coR[1] + coR[2]*x_grid^1 + coR[3]*x_grid^2 + coR[4]*x_grid^3 + coR[5]*x_grid^4 + coR[6]*x_grid^5 + coR[7]*x_grid^6 + coR[8]*x_grid^7 + coR[9]*x_grid^8 
+yr2_grid = coR2[1] + coR2[2]*x_grid^1 + coR2[3]*x_grid^2 + coR2[4]*x_grid^3 + coR2[5]*x_grid^4 + coR2[6]*x_grid^5 + coR2[7]*x_grid^6 + coR2[8]*x_grid^7 + coR2[9]*x_grid^8 
+plot(Xall, Yall)
+lines(x_grid, yr_grid, col = "red")
+lines(x_grid, yr2_grid, col = "blue")
+lines(x_grid, y_grid, col = "dark green")
+
+```
+
+Podemos ver que la curva penalizada por lambda = 100 (azul), a simple vista, se aleja demasiado de los datos. Por otro lado, la curva con lambda = 10 (roja) sí se ajusta bien a los datos y se puede apreciar un menor overfitting que en la curva polinómica sin penalizar (verde oscuro), por lo que, teniendo que elegir uno de los dos lambda, me quedaría con lambda = 10.
+
+## Pregunta 7
+
+```{r}
+
+Ete1 = 0
+
+for (j in 1:21){
+  Ete1 = Ete1 + (Yte[j]-(modelo$coefficients[[1]]+Xte[j]*modelo$coefficients[[2]]))^2
+}
+Ete1= Ete1/21
+
+Ete2 = 0
+
+for (j in 1:21){
+  Ete2 = Ete2 + (Yte[j]-(modeloP$coefficients[[1]]+Xte[j]*modeloP$coefficients[[2]]+Xte[j]^2*modeloP$coefficients[[3]]+Xte[j]^3*modeloP$coefficients[[4]]+Xte[j]^4*modeloP$coefficients[[5]]+Xte[j]^5*modeloP$coefficients[[6]]+Xte[j]^6*modeloP$coefficients[[7]]+Xte[j]^7*modeloP$coefficients[[8]]+Xte[j]^8*modeloP$coefficients[[9]]))^2
+}
+Ete2= Ete2/21
+
+Ete31 = 0
+
+for (j in 1:21){
+  Ete31 = Ete31 + (Yte[j]-(coR[1]+Xte[j]*coR[2]+Xte[j]^2*coR[3]+Xte[j]^3*coR[4]+Xte[j]^4*coR[5]+Xte[j]^5*coR[6]+Xte[j]^6*coR[7]+Xte[j]^7*coR[8]+Xte[j]^8*coR[9]))^2
+}
+Ete31= Ete31/21
+
+Ete32 = 0
+
+for (j in 1:21){
+  Ete32 = Ete32 + (Yte[j]-(coR2[1]+Xte[j]*coR2[2]+Xte[j]^2*coR2[3]+Xte[j]^3*coR2[4]+Xte[j]^4*coR2[5]+Xte[j]^5*coR2[6]+Xte[j]^6*coR2[7]+Xte[j]^7*coR2[8]+Xte[j]^8*coR2[9]))^2
+}
+Ete32= Ete32/21
+
+```
+
+El error del modelo lineal con una variable de entrada es `r Ete1`; el error del modelo polinomial sin penalizar es `r Ete2`; el error del modelo penalizado con lambda = 10 es `r Ete31` y el con lambda = 100 es `r Ete32`. Podemos apreciar que el modelo con menor error es el penalizado con lambda = 10, que es justo el que había seleccionado en la pregunta anterior. Con todo esto, el mejor modelo de los que cree es el penalizado con lambda = 10, que era lo esperable.
+
+# Parte 2
+
+```{r}
+
+datos2 = read.csv("FINAL_USO.csv")
+datos2$Date = NULL
+datos2$Open = NULL
+datos2$High = NULL
+datos2$Low = NULL
+datos2$Close = NULL
+datos2$Volume = NULL
+
+set.seed(19081998)
+
+```
+
+## Pregunta 1
+
+```{r}
+
+sepa = c(Entrenamiento = .6, Validacion = .2, Testeo = .2)
+
+sepaR = sample(cut(seq(nrow(datos2)), nrow(datos2)*cumsum(c(0,sepa)),labels = names(sepa)))
+
+datos2F = split(datos2, sepaR)
+
+```
+
+## Pregunta 2
+
+```{r}
+
+lambdas = c(0.00001,0.0001,0.001,0.01,0.1,1,10)
+modeloR = lm.ridge(Adj.Close~ ., data=datos2F$Entrenamiento, lambda = lambdas)
+plot(modeloR)
+
+```
+
+Entre más grande el Lambda, más pequeños los coeficientes, o sea, pierden importancia. Debería tomar un lambda "pequeño".
+
+## Pregunta 3
+
+```{r}
+
+lambdas2 = c(0.00001,0.0001,0.001,0.01,0.1)
+
+mmo= model.matrix(Adj.Close ~ . , data=datos2F$Entrenamiento)[,-1]
+modeloL = glmnet(mmo,datos2F$Entrenamiento$Adj.Close,lambda = lambdas2,alpha = 1)
+coL = coef(modeloL)
+
+regularizacion <- modeloL$beta %>% 
+  as.matrix() %>%
+  t() %>% 
+  as_tibble() %>%
+  mutate(lambda = modeloL$lambda)
+
+regularizacion <- regularizacion %>%
+  pivot_longer(
+    cols = !lambda, 
+    names_to = "predictor",
+    values_to = "coeficientes"
+  )
+
+regularizacion %>%
+  ggplot(aes(x = lambda, y = coeficientes, color = predictor)) +
+  geom_line() +
+  scale_x_log10(
+    breaks = trans_breaks("log10", function(x) 10^x),
+    labels = trans_format("log10", math_format(10^.x))
+  ) +
+  labs(title = "Coeficientes respecto a Lambdas en Lasso")
+
+```
+
+No todos los coeficientes se comportan de la misma forma respecto al lambda. Nuevamente, debería elegir un lambda pequeño.
+
+## Pregunta 4
+
+```{r}
+
+foldR = cv.glmnet(x = mmo, y = datos2F$Entrenamiento$Adj.Close, alpha  = 0, nfolds = 10,type.measure = "mse")
+foldR$lambda.min
+
+```
+
+No alcancé a hacer la validación cruzada con la base de validación, pero con el 10-fold se llega a un lambda óptimo de `r foldR$lambda.min`. 
+
+## Pregunta 5 
+
+```{r}
+
+foldL = cv.glmnet(x = mmo, y = datos2F$Entrenamiento$Adj.Close, alpha  = 1, nfolds = 10,type.measure = "mse")
+foldL$lambda.min
+
+```
+
+Idem que la anterior. El lambda óptimo es `r foldL$lambda.min`.
+
+## Pregunta 6
+
+```{r}
+
+modeloRO = lm.ridge(Adj.Close~ ., data=datos2F$Entrenamiento, lambda = foldR$lambda.min)
+modeloRO2 = glmnet(mmo,datos2F$Entrenamiento$Adj.Close,lambda = foldL$lambda.min,alpha = 0)
+modeloLO = glmnet(mmo,datos2F$Entrenamiento$Adj.Close,lambda = foldL$lambda.min,alpha = 1)
+mmoT= model.matrix(Adj.Close ~ . , data=datos2F$Testeo)[,-1]
+
+prediccionesR = predict(modeloRO2, newx = mmoT)
+prediccionesL = predict(modeloLO, newx = mmoT)
+ETRO= 0
+for (j in 1:length(prediccionesR)){
+  ETRO = ETRO + (datos2F$Testeo$Adj.Close[j]-prediccionesR[j])^2
+}
+ETRO = ETRO/344
+
+
+ETLO= 0
+for (j in 1:length(prediccionesL)){
+  ETLO = ETLO + (datos2F$Testeo$Adj.Close[j]-prediccionesL[j])^2
+}
+ETLO = ETLO/344
+
+
+rango = max(datos2$Adj.Close)-min(datos2$Adj.Close)
+
+```
+
+El modelo Ridge con lambda óptimo tiene un error cuadrático medio (`r ETRO`) levemente menor al del modelo Lasso con lambda óptimo (`r ETLO`). En general, son muy buenos errores, tomando en cuenta que la variable respuesta tiene un rango de `r rango`.
