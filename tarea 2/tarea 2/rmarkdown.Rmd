@@ -1,3 +1,11 @@
+---
+title: Tarea 2
+author: Sebastián Cabezas
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, error = FALSE)
 library(dplyr)
 library(stats)
 library(readr)
@@ -12,6 +20,7 @@ library(rpart.plot)
 library(tidymodels)
 library(ranger)
 library(doParallel)
+library(Rcpp)
 
 
 
@@ -46,8 +55,13 @@ base_testeo2 <- base_testeo[,-1] %>% mutate_all (~ ( scale (.)%>% as.vector ))
 base_validacion2 <- base_validacion[,-1] %>% mutate_all (~ ( scale (.)%>% as.vector ))
 
 
-# Pregunta 1.1 --------------------------------------------------------------
-# Ocupamos la base de validacion para calibrar el valor de R
+```
+
+# Pregunta 1
+
+## 1.1
+
+```{r}
 
 matriz_validacion = as.matrix(base_validacion2)
 
@@ -69,13 +83,32 @@ for (i in 1:75){
     vector_ECM = c(vector_ECM, error)}
   }
 
+```
+
+
+
+Ploteamos los 75 valores:
+
+```{r}
 plot(1:75, vector_ECM)
+
+```
+
+Podemos notar que no se aprecia muy bien los valores donde escoger, por lo que eliminaremos los primeros dos valores para poder apreciar con mayor detalle
+
+```{r}
+
 plot(3:75, vector_ECM[3:75])
 
+```
 
-# 1.2) --------------------------------------------------------------------
+Aqui elegimos el valor n=30, ya que notamos que el cambio del valor a partir de este valor no es muy notorio.
 
-#Elegimos r = 30, ya que despues de este, el ECM baja relativamente poco
+## 1.2
+
+Usando r=30:
+
+```{r}
 
 matriz_entrenamiento = as.matrix(base_entrenamiento2)
 descomposicion2 = svd(matriz_entrenamiento)
@@ -83,23 +116,22 @@ matriz_nueva2 = descomposicion2$u[,1:30]%*%diag(descomposicion2$d[1:30])
 regresion_u = lm(adj_close3~. , data = cbind(adj_close3,as.data.frame(matriz_nueva2)))
 
 
+Xvalr = as.matrix(base_validacion2)%*%descomposicion2$v[,1:30]
+ygorro = (Xvalr%*%(regresion_u$coefficients[2:31])) + regresion_u$coefficients[1]
 
-matriz_testeo = as.matrix(base_testeo2)
-descomposicion3 = svd(matriz_testeo)
-matriz_nueva3 = descomposicion3$u[,1:30]%*%diag(descomposicion3$d[1:30])
+ECM1_2 = mean((ygorro - adj_close)^2)
 
+ECM1_2
 
-prediccion_1 = predict(regresion_u, as.data.frame(matriz_nueva3))
-error_final = mean((prediccion_1-adj_close2)^2)
-
-
-# 2) ----------------------------------------------------------------------
+```
 
 
-# A) ----------------------------------------------------------------------
 
+# Pregunta 2:
 
-skim(datos)
+## 2.1
+
+```{r}
 
 arbol_regresion1 <- rpart(
   formula = Adj_close~ .,
@@ -107,11 +139,14 @@ arbol_regresion1 <- rpart(
   method = 'anova',
   cp = 0)
 
-summary(arbol_regresion1)
+
 rpart.plot(arbol_regresion1)
 
+```
 
-#Podemos notar que no se aprecia nada bien, por lo que cambiaremos un poco el parametro "cp" para lograr identificar valores
+Podemos notar que no se aprecia nada bien, por lo que procedemos a ocupar un valor de complejidad menor para poder apreciar el arbol
+
+```{r}
 
 arbol_regresion2 <- rpart(
   formula = Adj_close~ .,
@@ -119,15 +154,22 @@ arbol_regresion2 <- rpart(
   method = 'anova',
   cp = 0.0005)
 
-summary(arbol_regresion2)
+
 rpart.plot(arbol_regresion2)
 
 
-# B) ----------------------------------------------------------------------
-# Para esto, tomamos nuestro arbol mas completo para ir realizando cross validation y analizar el mejor valor del alpha
-# esto lo calculamos con el menor valor de Xerror
+```
 
-indice = which(round(as.numeric(arbol_regresion1$cptable[,4]),6) == 0.015172)
+El arbol original era el primero, pero en este segundo se puede notar de una mejor manera una parte de este.
+
+## 2.2
+
+```{r}
+
+
+minimo_valor = min(arbol_regresion1$cptable[,4])
+minimo_valor = round(minimo_valor,6)
+indice = which(round(as.numeric(arbol_regresion1$cptable[,4]),6) == minimo_valor)
 
 valor_cp = arbol_regresion1$cptable[indice,1]
 
@@ -137,35 +179,74 @@ arbol_podado = rpart(
   method = 'anova',
   cp = valor_cp)
 
+```
 
+## 2.3
 
-# C) ----------------------------------------------------------------------
+El grafico se adjunta en otro PDF ya que, en este se logro extraer toda la información desde R. Se adjunta como "grafico1.pdf"
 
-#Exportamos un pdf con la imagen para poder apreciar todos los valores
+predecimos el valor del primer registro de la base de testeo:
 
-
-pdf("tree.pdf")
-rpart.plot(arbol_podado, type = 4)
-dev.off()
+```{r}
 
 
 prediccion_c = predict(arbol_podado, newdata = base_testeo[1,])
 
-# Nos arroja un valor de 156.2525, el valor real es 157.16, lo cual es un valor bastante cercano
+```
 
+Nos arroja un valor de 156.2525, el valor real es 157.16, lo cual es un valor bastante cercano
 
-# 4) ----------------------------------------------------------------------
+## 2.4
+
+```{r}
+
 
 prediccion_d = predict(arbol_podado, newdata = base_testeo)
 
-mean((base_testeo[,1]-prediccion_d)^2) # Valor de 3.682029
+ECM2_4 = mean((base_testeo[,1]-prediccion_d)^2) # Valor de 3.682029
+
+ECM2_4
+
+```
 
 
-# 5) ----------------------------------------------------------------------
+## 2.5
+
+```{r}
 
 random_forest  <- ranger(
-  formula   = adj_close ~ .,
+  formula   = Adj_close ~ .,
   data      = base_entrenamiento,
   num.trees = 100,
   seed      = 123
 )
+
+
+predicciones_e = predict(
+  random_forest,
+  data = base_testeo
+)
+
+predicciones_e = predicciones_e$predictions
+MSE_e = mean((predicciones_e - base_testeo$Adj_close)^2)
+
+MSE_e
+```
+
+## 2.6
+
+Comparamos los 3 valores:
+
+```{r}
+
+ECM1_2
+ECM2_4
+MSE_e
+
+```
+
+EL valor más pequeño de ECM es el de random forest, por lo que creemos que este es el mejor.
+
+
+
+
