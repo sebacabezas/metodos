@@ -12,6 +12,7 @@ library(rpart.plot)
 library(tidymodels)
 library(ranger)
 library(doParallel)
+library(Rcpp)
 
 
 
@@ -83,17 +84,17 @@ matriz_nueva2 = descomposicion2$u[,1:30]%*%diag(descomposicion2$d[1:30])
 regresion_u = lm(adj_close3~. , data = cbind(adj_close3,as.data.frame(matriz_nueva2)))
 
 
+Xvalr = as.matrix(base_validacion2)%*%descomposicion2$v[,1:30]
+ygorro = (Xvalr%*%(regresion_u$coefficients[2:31])) + regresion_u$coefficients[1]
 
-matriz_testeo = as.matrix(base_testeo2)
-descomposicion3 = svd(matriz_testeo)
-matriz_nueva3 = descomposicion3$u[,1:30]%*%diag(descomposicion3$d[1:30])
+ECM1_2 = mean((ygorro - adj_close)^2)
 
 
-prediccion_1 = predict(regresion_u, as.data.frame(matriz_nueva3))
-error_final = mean((prediccion_1-adj_close2)^2)
 
 
 # 2) ----------------------------------------------------------------------
+
+
 
 
 # A) ----------------------------------------------------------------------
@@ -127,7 +128,9 @@ rpart.plot(arbol_regresion2)
 # Para esto, tomamos nuestro arbol mas completo para ir realizando cross validation y analizar el mejor valor del alpha
 # esto lo calculamos con el menor valor de Xerror
 
-indice = which(round(as.numeric(arbol_regresion1$cptable[,4]),6) == 0.015172)
+minimo_valor = min(arbol_regresion1$cptable[,4])
+minimo_valor = round(minimo_valor,6)
+indice = which(round(as.numeric(arbol_regresion1$cptable[,4]),6) == minimo_valor)
 
 valor_cp = arbol_regresion1$cptable[indice,1]
 
@@ -137,7 +140,7 @@ arbol_podado = rpart(
   method = 'anova',
   cp = valor_cp)
 
-
+  
 
 # C) ----------------------------------------------------------------------
 
@@ -158,14 +161,33 @@ prediccion_c = predict(arbol_podado, newdata = base_testeo[1,])
 
 prediccion_d = predict(arbol_podado, newdata = base_testeo)
 
-mean((base_testeo[,1]-prediccion_d)^2) # Valor de 3.682029
+ECM2_4 = mean((base_testeo[,1]-prediccion_d)^2) # Valor de 3.68
 
 
 # 5) ----------------------------------------------------------------------
 
 random_forest  <- ranger(
-  formula   = adj_close ~ .,
+  formula   = Adj_close ~ .,
   data      = base_entrenamiento,
   num.trees = 100,
   seed      = 123
 )
+
+
+predicciones_e = predict(
+  random_forest,
+  data = base_testeo
+)
+
+predicciones_e = predicciones_e$predictions
+MSE_e = mean((predicciones_e - base_testeo$Adj_close)^2)
+
+
+
+# 6) ----------------------------------------------------------------------
+
+ECM1_2
+ECM2_4
+MSE_e
+
+
